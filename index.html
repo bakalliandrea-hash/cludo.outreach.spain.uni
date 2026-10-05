@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Spain University Outreach</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: sticky toolbar (sequence tabs + progress + Outlook sync), then a single-column list of contact cards;
+   each card expands into a timeline, the next email as an editable draft, and one-click Outlook buttons. */
+:root{
+  --bg:#f5f6f8; --surface:#ffffff; --fg:#1b2430; --muted:#5b6675; --line:#dde2e9;
+  --accent:#0f6e8c; --accent-fg:#ffffff; --accent-soft:#e3f1f5;
+  --warn:#9a5b00; --warn-soft:#fff3dc; --ok:#1f7a4d; --ok-soft:#e2f3e9; --due:#b4232c; --due-soft:#fde8e9;
+  --font-ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a21; --surface:#1d242d; --fg:#e8ecf1; --muted:#9aa6b4; --line:#2e3844;
+  --accent:#5fc0dc; --accent-fg:#0d1a20; --accent-soft:#1a3640;
+  --warn:#f0b65a; --warn-soft:#3a2d12; --ok:#6ad39a; --ok-soft:#163626; --due:#ff8a8f; --due-soft:#3f1b1e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141a21; --surface:#1d242d; --fg:#e8ecf1; --muted:#9aa6b4; --line:#2e3844;
+  --accent:#5fc0dc; --accent-fg:#0d1a20; --accent-soft:#1a3640;
+  --warn:#f0b65a; --warn-soft:#3a2d12; --ok:#6ad39a; --ok-soft:#163626; --due:#ff8a8f; --due-soft:#3f1b1e; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-ui);font-size:14px;line-height:1.5;margin:0}
+.wrap{max-width:960px;margin:0 auto;padding-inline:16px;padding-block:20px 60px}
+h1{font-size:22px;font-weight:600;margin:0 0 4px;text-wrap:balance}
+.sub{color:var(--muted);margin:0 0 18px;max-width:70ch}
+
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:10px;overflow-x:auto}
+.tab{font:inherit;font-weight:500;background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);padding:8px 10px;cursor:pointer;margin-bottom:-1px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+.tab.hot{color:var(--due)}
+.tab.hot[aria-selected="true"]{border-bottom-color:var(--due)}
+.tab:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.toolbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:10px 12px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chk{display:inline-flex;gap:6px;align-items:center;color:var(--muted);cursor:pointer;white-space:nowrap}
+.progress{display:flex;gap:14px;align-items:center;margin-top:6px;color:var(--muted);font-variant-numeric:tabular-nums;flex-wrap:wrap}
+.bar{flex:1 1 160px;height:6px;background:var(--line);border-radius:3px;overflow:hidden;display:flex}
+.bar i{display:block;height:100%}
+.bar .s1{background:var(--accent)} .bar .s2{background:var(--ok)}
+.sync{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:13px;color:var(--muted)}
+.sync .btn{padding:5px 10px;font-size:13px}
+.sync .err{color:var(--warn)}
+
+.grp{font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:16px 0 6px;font-variant-numeric:tabular-nums}
+.grp:first-child{margin-top:0}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;margin-bottom:8px}
+.card.due{border-left:3px solid var(--due)}
+.head{display:grid;grid-template-columns:1fr auto;gap:8px 12px;align-items:center;padding:10px 12px;cursor:pointer}
+.head:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.name{font-weight:600}
+.org{color:var(--muted)}
+.meta{color:var(--muted);font-size:13px;min-width:0;overflow-wrap:anywhere}
+.pills{justify-content:flex-end}
+.pill{font-size:11px;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:999px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.pill.rev{background:var(--warn-soft);color:var(--warn)}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.pend{background:var(--warn-soft);color:var(--warn)}
+.pill.due{background:var(--due-soft);color:var(--due)}
+.pill.mute{background:var(--line);color:var(--muted)}
+
+.body{border-top:1px solid var(--line);padding:12px}
+.timeline{display:flex;flex-wrap:wrap;gap:6px 0;margin:0 0 12px;padding:0;list-style:none;font-size:13px}
+.timeline li{display:flex;align-items:center;gap:6px;padding-right:14px;color:var(--muted)}
+.timeline li::before{content:"";width:9px;height:9px;border-radius:50%;border:2px solid var(--line);flex:none}
+.timeline li.done{color:var(--fg)} .timeline li.done::before{background:var(--ok);border-color:var(--ok)}
+.timeline li.next{color:var(--fg);font-weight:500} .timeline li.next::before{border-color:var(--accent)}
+.timeline li.late::before{border-color:var(--due);background:var(--due)}
+.timeline li.reply{color:var(--fg)} .timeline li.reply::before{background:var(--accent);border-color:var(--accent)}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px 16px;font-size:13px;margin-bottom:10px}
+.fields b{font-weight:500;color:var(--muted);display:block;font-size:11px;letter-spacing:.04em;text-transform:uppercase}
+.fields span{overflow-wrap:anywhere}
+label.lbl{display:block;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:10px 0 4px}
+.subj,.draft{width:100%;font:13px/1.55 var(--font-mono);color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px 10px}
+.draft{min-height:200px;resize:vertical}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center}
+.btn{font:inherit;font-weight:500;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:6px;padding:7px 12px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--accent)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.primary{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:default}
+.note{font-size:12px;color:var(--muted);margin-top:8px;max-width:70ch}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:6px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center}
+.toast.show{opacity:1}
+.empty{color:var(--muted);padding:30px 0;text-align:center}
+.setup{background:var(--surface);border:1px dashed var(--line);border-radius:8px;padding:16px;margin-bottom:14px}
+.setup p{margin:0 0 10px;max-width:70ch}
+.foot{color:var(--muted);font-size:13px;margin-top:18px}
+.foot button{font:inherit;background:none;border:0;color:var(--accent);cursor:pointer;padding:0;text-decoration:underline}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+@media (max-width:520px){.head{grid-template-columns:1fr}.pills{justify-content:flex-start}}
+</style>
+
+</head><body>
+<div class="wrap">
+  <h1>Spain University Outreach</h1>
+  <p class="sub">Your contacts, three emails each: the first contact, a follow-up 2 working days later, and a last follow-up 3 working days after that. Weekends and Spanish public holidays don't count. The contact list lives in your OneDrive and is loaded after you sign in; everything else is read from your Outlook: an email is only counted once it appears in Sent Items, a reply is detected from your Inbox, and a conversation leaves this page once you have answered the reply.</p>
+
+  <div class="toolbar">
+    <div class="tabs" role="tablist" id="tabs">
+      <button class="tab" role="tab" data-tab="todo">To contact</button>
+      <button class="tab hot" role="tab" data-tab="due">Follow-up due</button>
+      <button class="tab" role="tab" data-tab="waiting">Waiting</button>
+      <button class="tab" role="tab" data-tab="replied">Replied</button>
+      <button class="tab" role="tab" data-tab="finished">Finished</button>
+    </div>
+    <div class="row">
+      <label class="chk"><input type="checkbox" id="fReview"> Needs review only</label>
+      <span class="chk" id="tabHint"></span>
+    </div>
+    <div class="progress"><span id="shown"></span><div class="bar"><i class="s1" id="bar1"></i><i class="s2" id="bar2"></i></div><span id="counts"></span><button class="btn" id="copyList">Copy status list</button></div>
+    <div class="sync" id="syncRow" hidden><button class="btn" id="syncBtn">Sync with Outlook</button><span id="syncStatus"></span></div>
+  </div>
+
+  <div class="setup" id="setup" hidden>
+    <p id="setupMsg"></p>
+    <label class="btn" for="importFile">Import contacts.json</label>
+    <input type="file" id="importFile" accept=".json,application/json" hidden>
+  </div>
+  <div id="list"></div>
+  <p class="empty" id="empty" hidden></p>
+  <p class="foot" id="foot" hidden></p>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@3.28.1/lib/msal-browser.min.js" crossorigin="anonymous"></script>
+<script>
+let DATA = [];
+const kid = c => String(c.email).toLowerCase();   // state key: the address, stable when the list changes
+const SENDER = 'andrea.bakalli@cludo.com';
+const CAMPAIGN_START = '2026-10-05';
+const WAIT_DAYS = [0, 2, 3];                 // working days to wait after email 1 and after email 2
+// Spanish national public holidays (add regional ones here if needed); weekends are skipped automatically
+const HOLIDAYS = new Set(['2026-10-12','2026-11-01','2026-12-06','2026-12-08','2026-12-25',
+  '2027-01-01','2027-01-06','2027-03-26','2027-05-01','2027-08-15','2027-10-12','2027-11-01','2027-12-06','2027-12-08','2027-12-25']);
+const FU = {
+  2: `Hola {nombre},
+
+Te escribo respecto al correo que te envié hace unos días sobre el buscador de vuestra web, por si aún no lo has visto.
+
+Cuando tengas un momento, me gustaría saber qué te parece.`,
+  3: `Hola {nombre},
+
+Quería hacer un último intento. Puedo prepararte un análisis gratuito del buscador de vuestra web: un resumen concreto de dónde funciona bien la búsqueda y dónde se podría mejorar.
+
+Cludo es una herramienta que ayuda a universidades e instituciones a hacer su buscador más conversacional y más fácil de gestionar, incluidas funcionalidades de IA. Ya trabajamos con varias universidades europeas y estamos intentando entender mejor cómo abordan hoy este tema las universidades españolas.
+
+Si te parece, me gustaría hacer una breve llamada: nada comercial, sino un intercambio en el que comentemos los resultados del análisis, vosotros nos deis feedback sobre la herramienta que estamos construyendo y nosotros os enseñemos cómo funciona nuestro buscador. Algo útil para ambas partes.
+
+Dime si crees que puede tener sentido.`
+};
+const STEP_NAME = {1: 'Email 1', 2: 'Follow-up 1', 3: 'Follow-up 2'};
+
+// ---------- persisted state (this browser only) ----------
+const LKEY = 'cludo-es-log-v3', MKEY = 'cludo-es-manual-v3', PKEY = 'cludo-es-pending-v3', SKEY = 'cludo-es-sync-v3';
+let log = {}, manual = {}, pending = {}, syncInfo = {};
+function load(k, d){ try { return JSON.parse(localStorage.getItem(k) || 'null') || d; } catch (e) { return d; } }
+function save(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+log = load(LKEY, {}); manual = load(MKEY, {}); pending = load(PKEY, {}); syncInfo = load(SKEY, {});
+// log[id] = {sent: [iso], replies: [iso]} from Outlook; manual[id] = {sent: [iso], replied: iso|null, ignoreReplies: bool, handled: bool}
+
+const $ = s => document.querySelector(s);
+const list = $('#list'), toast = $('#toast');
+let tab = 'todo', toastT, showHandled = false;
+const open = new Set();
+function say(msg){ toast.textContent = msg; toast.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(()=>toast.classList.remove('show'), 2200); }
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function enc(s){ return encodeURIComponent(s).replace(/[!'()*]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase()); }
+
+// ---------- dates ----------
+function ymd(d){ const x = new Date(d); return x.getFullYear() + '-' + String(x.getMonth()+1).padStart(2,'0') + '-' + String(x.getDate()).padStart(2,'0'); }
+function todayYmd(){ return ymd(new Date()); }
+function isWorkDay(y){ const d = new Date(y + 'T12:00:00'); const w = d.getDay(); return w !== 0 && w !== 6 && !HOLIDAYS.has(y); }
+function addWorkDays(fromIso, n){            // n working days after the day the email was sent
+  let d = new Date(ymd(fromIso) + 'T12:00:00'), left = n;
+  while (left > 0) { d.setDate(d.getDate() + 1); if (isWorkDay(ymd(d))) left--; }
+  return ymd(d);
+}
+function fmt(y){ if (!y) return ''; const d = new Date(y.length === 10 ? y + 'T12:00:00' : y); return isNaN(d) ? '' : d.toLocaleDateString('en-GB', {day:'numeric', month:'short'}); }
+function dayDiff(a, b){ return Math.round((new Date(a + 'T12:00:00') - new Date(b + 'T12:00:00')) / 86400000); }
+
+// ---------- derived status per contact ----------
+function info(c){
+  const L = log[kid(c)] || {}, M = manual[kid(c)] || {};
+  let sent = [...new Set([...(L.sent || []), ...(M.sent || [])])].sort();
+  const bounces = [...(L.bounces || [])].sort();
+  const voided = new Set();
+  for (const b of bounces) { const cand = sent.filter(x => !voided.has(x) && x <= b && (new Date(b) - new Date(x)) < 2 * 86400000); if (cand.length) voided.add(cand[cand.length - 1]); }
+  sent = sent.filter(x => !voided.has(x));
+  const lastBounce = bounces[bounces.length - 1] || null;
+  let replies = M.ignoreReplies ? [] : [...(L.replies || [])];
+  if (M.replied) replies.push(M.replied);
+  replies = [...new Set(replies)].sort();
+  const n = Math.min(sent.length, 3), lastSent = sent[sent.length - 1] || null, lastReply = replies[replies.length - 1] || null;
+  const o = {sent, replies, n, lastSent, lastReply, lastBounce, bounced: voided.size, step: n + 1, due: null, status: 'todo'};
+  if (M.handled) { o.status = 'handled'; return o; }
+  if (lastReply) { o.status = (lastSent && lastSent > lastReply) ? 'handled' : 'replied'; return o; }
+  if (n === 0) return o;
+  if (n >= 3) { o.status = 'finished'; return o; }
+  o.due = addWorkDays(lastSent, WAIT_DAYS[n]);
+  o.status = todayYmd() >= o.due ? 'due' : 'waiting';
+  return o;
+}
+function subjectFor(c, step){ return step === 1 ? c.subject : 'Re: ' + c.subject; }
+function bodyFor(c, step){ return step === 1 ? c.body : (FU[step] || '').replace('{nombre}', c.first_name); }
+function links(c, subject, body){
+  return {
+    owa: 'https://outlook.office.com/mail/deeplink/compose?to=' + enc(c.email) + '&subject=' + enc(subject) + '&body=' + enc(body) + '&login_hint=' + enc(SENDER),
+    mailto: 'mailto:' + c.email + '?subject=' + enc(subject) + '&body=' + enc(body)
+  };
+}
+async function copy(text, label){
+  try { await navigator.clipboard.writeText(text); say(label + ' copied'); }
+  catch (e) {
+    const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); say(label + ' copied'); } catch (e2) { say('Select and copy manually'); }
+    document.body.removeChild(ta);
+  }
+}
+
+// ---------- rendering ----------
+// every tab is ordered by organisation, then surname, so one organisation's contacts sit together
+const byOrg = (a,b) => a.c.organisation.localeCompare(b.c.organisation, 'es', {sensitivity: 'base'}) || a.c.last_name.localeCompare(b.c.last_name, 'es', {sensitivity: 'base'});
+const todoOrder = (a,b) => ((b.i.bounced ? 1 : 0) - (a.i.bounced ? 1 : 0)) || byOrg(a,b);   // bounced contacts float to the top of To contact
+const TAB_ORDER = {todo: todoOrder, due: byOrg, waiting: byOrg, replied: byOrg, finished: byOrg};
+const EMPTY = {todo: 'Everyone has received the first email.', due: 'No follow-ups due today. Check again tomorrow.', waiting: 'Nobody is waiting on a follow-up.',
+  replied: 'No replies yet. Replies are detected from your Inbox on sync.', finished: 'Nobody has completed the three-email sequence yet.'};
+const HINT = {todo: 'Haven’t received email 1 yet', due: 'Follow-up date reached', waiting: 'Sent; next follow-up not due yet',
+  replied: 'They wrote back; answer them in Outlook and they leave this page', finished: 'Three emails sent, no reply'};
+
+function pillsFor(c, i){
+  const p = [];
+  if (i.status === 'due') p.push(`<span class="pill due">${esc(STEP_NAME[i.step])} due ${dayDiff(todayYmd(), i.due) > 0 ? esc(fmt(i.due)) : 'today'}</span>`);
+  if (i.status === 'waiting') p.push(`<span class="pill mute">${esc(STEP_NAME[i.step])} due ${esc(fmt(i.due))}</span>`);
+  if (i.status === 'replied') p.push(`<span class="pill ok">Replied ${esc(fmt(i.lastReply))}</span>`);
+  if (i.status === 'finished') p.push(`<span class="pill mute">3 sent · no reply</span>`);
+  if (i.status === 'handled') p.push(`<span class="pill ok">Answered ${esc(fmt(i.lastSent))}</span>`);
+  if (i.n > 0 && i.status !== 'handled') p.push(`<span class="pill ok">${i.n} sent</span>`);
+  const pd = pending[kid(c)];
+  if (pd && pd.step === i.step && i.status !== 'replied' && i.status !== 'handled') p.push(`<span class="pill pend">Draft opened ${esc(fmt(pd.at))}</span>`);
+  if (i.bounced && i.status !== 'handled') p.push(`<span class="pill due">Delivery failed ${esc(fmt(i.lastBounce))} · resend</span>`);
+  if (c.review === 'yes') p.push('<span class="pill rev">Review área</span>');
+  if (i.n === 0) p.push(`<span class="pill">${esc(c.area)}</span>`);
+  return p.join('');
+}
+function timelineHTML(c, i){
+  const items = [];
+  for (let s = 1; s <= 3; s++) {
+    const at = i.sent[s - 1];
+    if (at) items.push(`<li class="done">${STEP_NAME[s]} sent ${esc(fmt(at))}</li>`);
+    else if (s === i.step && i.due) items.push(`<li class="next ${i.status === 'due' ? 'late' : ''}">${STEP_NAME[s]} due ${esc(fmt(i.due))}</li>`);
+    else if (s === 1) items.push(`<li class="next">${STEP_NAME[1]} not sent yet</li>`);
+    else items.push(`<li>${STEP_NAME[s]}</li>`);
+  }
+  if (i.lastReply) items.push(`<li class="reply">Replied ${esc(fmt(i.lastReply))}</li>`);
+  if (i.bounced) items.push(`<li class="late">${i.bounced} email${i.bounced > 1 ? 's' : ''} not delivered (bounced ${esc(fmt(i.lastBounce))}); it does not count as sent</li>`);
+  return `<ul class="timeline">${items.join('')}</ul>`;
+}
+function cardHTML(c){
+  const i = info(c), isOpen = open.has(c.id);
+  return `<div class="card ${i.status === 'due' ? 'due' : ''}" data-id="${c.id}">
+    <div class="head" tabindex="0" role="button" aria-expanded="${isOpen}">
+      <div class="meta"><span class="name">${esc(c.first_name)} ${esc(c.last_name)}</span> <span class="org">· ${esc(c.organisation)}</span><br>${esc(c.title)}</div>
+      <div class="pills row">${pillsFor(c, i)}</div>
+    </div>
+    ${isOpen ? bodyHTML(c, i) : ''}
+  </div>`;
+}
+function bodyHTML(c, i){
+  const canSend = i.status === 'todo' || i.status === 'due' || i.status === 'waiting';
+  const step = i.step;
+  const draft = canSend ? `
+    <label class="lbl" for="s${c.id}">${esc(STEP_NAME[step])} · subject</label>
+    <input class="subj" id="s${c.id}" value="${esc(subjectFor(c, step))}">
+    <label class="lbl" for="b${c.id}">${esc(STEP_NAME[step])} · body (editable; your Outlook signature is added on send)</label>
+    <textarea class="draft" id="b${c.id}" ${step === 1 ? 'style="min-height:330px"' : ''}>${esc(bodyFor(c, step))}</textarea>
+    <div class="actions">
+      <a class="btn primary" data-act="owa" href="#" target="_blank" rel="noopener">Open ${esc(STEP_NAME[step].toLowerCase())} in Outlook web</a>
+      <a class="btn" data-act="mailto" href="#" target="_top">Open in Outlook app</a>
+      <button class="btn" data-act="copyEmail">Copy address</button>
+      <button class="btn" data-act="copyBody">Copy body</button>
+      ${pending[kid(c)] && pending[kid(c)].step === step ? '<button class="btn" data-act="unpend">Clear “draft opened”</button>' : ''}
+      <button class="btn" data-act="manualSent">Mark ${esc(STEP_NAME[step].toLowerCase())} as sent manually</button>
+      ${i.n === 0 ? '' : '<button class="btn" data-act="manualReplied">They replied (mark by hand)</button>'}
+    </div>` : i.status === 'replied' ? `
+    <div class="actions">
+      <a class="btn primary" href="https://outlook.office.com/mail/inbox?login_hint=${enc(SENDER)}" target="_blank" rel="noopener">Open Inbox in Outlook web</a>
+      <button class="btn" data-act="copyEmail">Copy address</button>
+      <button class="btn" data-act="notReply">Not a real reply (auto-reply)</button>
+      <button class="btn" data-act="handled">I answered them, remove from here</button>
+    </div>` : i.status === 'finished' ? `
+    <div class="actions"><button class="btn" data-act="copyEmail">Copy address</button><button class="btn" data-act="manualReplied">They replied (mark by hand)</button></div>` : `
+    <div class="actions"><button class="btn" data-act="unhandle">Bring back to Replied</button></div>`;
+  const note = c.review === 'yes' && step === 1 && canSend
+    ? 'The job title looks academic rather than web, IT or communications, so the [área] wording is a placeholder. Edit it before sending, or skip this contact.'
+    : i.bounced && canSend ? 'Outlook reported this email as undeliverable, so it is not counted. If the bounce said “bad outbound sender”, your mailbox was blocked by Microsoft; wait for IT to lift the block before resending. If it said the address was not found, fix or skip the contact.'
+    : canSend ? 'Nothing is sent from this page; Outlook opens with the draft ready. The contact advances only when the email shows up in your Sent Items.' : '';
+  return `<div class="body">
+    ${timelineHTML(c, i)}
+    <div class="fields">
+      <div><b>Email</b><span>${esc(c.email)}</span></div>
+      <div><b>Website</b><span><a href="${esc(c.website)}" target="_blank" rel="noopener">${esc(c.website.replace(/^https?:\/\/(www\.)?/, ''))}</a></span></div>
+      ${c.linkedin ? `<div><b>LinkedIn</b><span><a href="${esc(c.linkedin)}" target="_blank" rel="noopener">profile</a></span></div>` : ''}
+      ${c.city ? `<div><b>City</b><span>${esc(c.city)}</span></div>` : ''}
+    </div>
+    ${draft}
+    ${note ? `<p class="note">${note}</p>` : ''}
+  </div>`;
+}
+
+function render(){
+  const rv = $('#fReview').checked;
+  $('#empty').hidden = true; if (!DATA.length) { list.innerHTML = ''; $('#shown').textContent = ''; $('#counts').textContent = ''; for (const t of document.querySelectorAll('#tabs .tab')) t.setAttribute('aria-selected', t.dataset.tab === tab); return; }
+  const all = DATA.map(c => ({c, i: info(c)}));
+  const counts = {todo: 0, due: 0, waiting: 0, replied: 0, finished: 0, handled: 0};
+  for (const x of all) counts[x.i.status]++;
+  const rows = all.filter(x => (showHandled && tab === 'replied' ? (x.i.status === 'replied' || x.i.status === 'handled') : x.i.status === tab) && (!rv || x.c.review === 'yes'));
+  rows.sort(TAB_ORDER[tab]);
+  let html = '', lastOrg = null;
+  for (const x of rows) {
+    if (x.c.organisation !== lastOrg) { lastOrg = x.c.organisation; const k = rows.filter(y => y.c.organisation === lastOrg).length; html += `<div class="grp">${esc(lastOrg)} · ${k}</div>`; }
+    html += cardHTML(x.c);
+  }
+  list.innerHTML = html;
+  for (const t of document.querySelectorAll('#tabs .tab')) {
+    const k = t.dataset.tab;
+    t.textContent = {todo: 'To contact', due: 'Follow-up due', waiting: 'Waiting', replied: 'Replied', finished: 'Finished'}[k] + ` (${counts[k]})`;
+    t.setAttribute('aria-selected', k === tab);
+  }
+  $('#tabHint').textContent = HINT[tab];
+  $('#empty').hidden = rows.length > 0; $('#empty').textContent = EMPTY[tab];
+  const contacted = DATA.length - counts.todo, done = counts.finished + counts.handled + counts.replied;
+  $('#shown').textContent = `${rows.length} shown`;
+  $('#bar1').style.width = (100 * (contacted - done) / DATA.length) + '%';
+  $('#bar2').style.width = (100 * done / DATA.length) + '%';
+  $('#counts').textContent = `${contacted} of ${DATA.length} contacted · ${counts.replied + counts.handled} replied`;
+  const foot = $('#foot');
+  foot.hidden = !(tab === 'replied' && counts.handled > 0);
+  if (!foot.hidden) foot.innerHTML = `${counts.handled} conversation${counts.handled === 1 ? '' : 's'} answered and handed over to Outlook. <button id="toggleHandled">${showHandled ? 'Hide them' : 'Show them'}</button>`;
+}
+
+function refreshLinks(card, c){
+  const subj = card.querySelector('.subj'), body = card.querySelector('.draft');
+  if (!subj || !body) return;
+  const l = links(c, subj.value, body.value);
+  card.querySelector('[data-act="owa"]').href = l.owa;
+  card.querySelector('[data-act="mailto"]').href = l.mailto;
+}
+function M(k){ return manual[k] || (manual[k] = {sent: [], replied: null, ignoreReplies: false, handled: false}); }
+
+list.addEventListener('click', e => {
+  const card = e.target.closest('.card'); if (!card) return;
+  const id = +card.dataset.id, c = DATA[id], i = info(c), k = kid(c);
+  const act = e.target.closest('[data-act]');
+  if (act) {
+    const a = act.dataset.act;
+    if (a === 'owa' || a === 'mailto') {
+      refreshLinks(card, c);                       // href is current; the click proceeds and Outlook opens
+      setTimeout(() => { pending[k] = {step: i.step, at: new Date().toISOString()}; save(PKEY, pending); render(); say('Draft opened. It counts once Outlook shows it as sent.'); }, 400);
+      return;
+    }
+    e.preventDefault();
+    const body = card.querySelector('.draft');
+    if (a === 'copyEmail') copy(c.email, 'Address');
+    if (a === 'copyBody' && body) copy(body.value, 'Body');
+    if (a === 'unpend') { delete pending[k]; save(PKEY, pending); render(); }
+    if (a === 'manualSent') { M(k).sent.push(new Date().toISOString()); delete pending[k]; save(MKEY, manual); save(PKEY, pending); open.delete(id); render(); say(STEP_NAME[i.step] + ' marked as sent'); }
+    if (a === 'manualReplied') { M(k).replied = new Date().toISOString(); M(k).ignoreReplies = false; save(MKEY, manual); open.delete(id); render(); say('Moved to Replied'); }
+    if (a === 'notReply') { M(k).replied = null; M(k).ignoreReplies = true; save(MKEY, manual); open.delete(id); render(); say('Reply ignored; sequence continues'); }
+    if (a === 'handled') { M(k).handled = true; save(MKEY, manual); open.delete(id); render(); say('Removed from the page'); }
+    if (a === 'unhandle') { M(k).handled = false; save(MKEY, manual); open.delete(id); render(); }
+    return;
+  }
+  if (e.target.closest('.head')) { open.has(id) ? open.delete(id) : open.add(id); render(); if (open.has(id)) refreshLinks(list.querySelector(`.card[data-id="${id}"]`), c); }
+});
+list.addEventListener('keydown', e => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.classList.contains('head')) { e.preventDefault(); e.target.click(); }
+});
+list.addEventListener('input', e => {
+  const card = e.target.closest('.card'); if (card && e.target.matches('.subj,.draft')) refreshLinks(card, DATA[+card.dataset.id]);
+});
+$('#fReview').addEventListener('input', render);
+$('#tabs').addEventListener('click', e => { const t = e.target.closest('[data-tab]'); if (t) { tab = t.dataset.tab; showHandled = false; render(); } });
+$('#foot').addEventListener('click', e => { if (e.target.id === 'toggleHandled') { showHandled = !showHandled; render(); } });
+$('#copyList').addEventListener('click', () => {
+  const rows = DATA.map(c => { const i = info(c); return [c.first_name + ' ' + c.last_name, c.organisation, c.title, c.email, i.status, i.sent[0] || '', i.sent[1] || '', i.sent[2] || '', i.lastReply || '', i.due || ''].map(v => String(v).slice(0, 10)).join('\t'); });
+  copy(['Name\tOrganisation\tTitle\tEmail\tStatus\tEmail 1\tFollow-up 1\tFollow-up 2\tReplied\tNext due', ...rows].join('\n'), 'Status list');
+});
+render();
+
+// ---------- Outlook sync ----------
+// Three ways to reach Outlook, picked automatically:
+//   "claude" – inside the Claude viewer, through the Microsoft 365 connector
+//   "graph"  – on a normal website, straight to Microsoft Graph with your own sign-in (needs OUTREACH_CONFIG.clientId)
+//   none     – a file opened from disk: steps are marked by hand
+const CFG = window.OUTREACH_CONFIG || {};
+const SERVER = 'Microsoft 365', TOOL = 'outlook_email_search', PERM = 'mcp:' + SERVER;
+let known = new Set(DATA.map(kid));
+function setData(arr){ DATA = arr.map((c, i) => Object.assign({}, c, {id: i})); known = new Set(DATA.map(kid)); open.clear(); render(); }
+let backend = null, mcp = null, perms = null, msal = null, account = null, syncing = false;
+function setStatus(msg, isErr){ const el = $('#syncStatus'); el.textContent = msg; el.className = isErr ? 'err' : ''; }
+function parseItems(result){
+  const out = [], texts = [];
+  if (result && result.payload !== undefined && typeof result.payload !== 'string') texts.push(JSON.stringify(result.payload));
+  else for (const b of (result && result.content) || []) if (b.type === 'text') texts.push(b.text);
+  for (const t of texts) {
+    try { const v = JSON.parse(t); (Array.isArray(v) ? v : [v]).forEach(x => out.push(x)); continue; } catch (e) {}
+    let depth = 0, start = -1, inStr = false, escp = false;        // concatenated JSON objects
+    for (let k = 0; k < t.length; k++) {
+      const ch = t[k];
+      if (inStr) { if (escp) escp = false; else if (ch === '\\') escp = true; else if (ch === '"') inStr = false; continue; }
+      if (ch === '"') inStr = true;
+      else if (ch === '{') { if (depth === 0) start = k; depth++; }
+      else if (ch === '}') { depth--; if (depth === 0 && start >= 0) { try { out.push(JSON.parse(t.slice(start, k + 1))); } catch (e) {} start = -1; } }
+    }
+  }
+  return out;
+}
+function timeoutSignal(ms){ try { return AbortSignal.timeout ? AbortSignal.timeout(ms) : undefined; } catch (e) { return undefined; } }
+
+// --- backend A: Claude connector. Yields {sender, recipients[], sentDateTime, receivedDateTime}
+async function scanClaude(folder, after, onItem){
+  let offset = 0, pages = 0, n = 0;
+  while (pages < 80) {
+    setStatus(`Reading ${folder}… page ${pages + 1}`);
+    const res = await mcp.callTool(SERVER, TOOL, {folderName: folder, afterDateTime: after, order: 'newest', limit: 25, offset}, {cache: false, signal: timeoutSignal(90000)});
+    let next = null;
+    for (const it of parseItems(res)) {
+      if (it && it.nextOffset !== undefined) { next = it.nextOffset; continue; }
+      if (!it || !it.sender) continue;
+      n++; onItem({sender: it.sender, recipients: it.recipients, sentDateTime: it.sentDateTime, receivedDateTime: it.receivedDateTime, subject: it.subject || '', preview: it.summary || ''});
+    }
+    pages++;
+    if (next === null || next === undefined) break;
+    offset = next;
+  }
+  return n;
+}
+// --- backend B: Microsoft Graph with MSAL (hosted website)
+const GRAPH_SCOPES = ['User.Read', 'Mail.Read', 'Files.ReadWrite.AppFolder'];
+async function graphToken(interactive){
+  const req = {scopes: GRAPH_SCOPES, account};
+  try { return (await msal.acquireTokenSilent(req)).accessToken; }
+  catch (e) { if (!interactive) throw e; const r = await msal.acquireTokenPopup({scopes: GRAPH_SCOPES}); account = r.account; msal.setActiveAccount(account); return r.accessToken; }
+}
+async function graphGet(url, token){
+  const r = await fetch(url, {headers: {Authorization: 'Bearer ' + token}, signal: timeoutSignal(60000)});
+  if (r.status === 401) { const e = new Error('unauthorized'); e.code = 'needs_reauth'; throw e; }
+  if (!r.ok) { const e = new Error('Graph ' + r.status + ': ' + (await r.text()).slice(0, 200)); e.code = r.status === 403 ? 'blocked_by_policy' : 'upstream_error'; throw e; }
+  return r.json();
+}
+async function scanGraph(folder, after, onItem){
+  const token = await graphToken(true);
+  const id = folder === 'Inbox' ? 'inbox' : 'sentitems', dateField = folder === 'Inbox' ? 'receivedDateTime' : 'sentDateTime';
+  let url = `https://graph.microsoft.com/v1.0/me/mailFolders/${id}/messages?$filter=${dateField} ge ${after}T00:00:00Z&$orderby=${dateField} desc&$top=100&$select=from,toRecipients,ccRecipients,sentDateTime,receivedDateTime,isDraft,subject,bodyPreview`;
+  let pages = 0, n = 0;
+  while (url && pages < 80) {
+    setStatus(`Reading ${folder}… page ${pages + 1}`);
+    const data = await graphGet(url, token);
+    for (const m of data.value || []) {
+      if (m.isDraft || !m.from || !m.from.emailAddress) continue;
+      n++;
+      onItem({sender: m.from.emailAddress.address, recipients: [...(m.toRecipients || []), ...(m.ccRecipients || [])].map(r => r.emailAddress && r.emailAddress.address).filter(Boolean),
+              sentDateTime: m.sentDateTime, receivedDateTime: m.receivedDateTime, subject: m.subject || '', preview: m.bodyPreview || ''});
+    }
+    url = data['@odata.nextLink']; pages++;
+  }
+  return n;
+}
+// state in OneDrive (app folder) so progress follows you across devices when signed in
+async function cloudLoad(){
+  try { const token = await graphToken(false);
+    const r = await fetch('https://graph.microsoft.com/v1.0/me/drive/special/approot:/outreach-state.json:/content', {headers: {Authorization: 'Bearer ' + token}});
+    if (r.status === 404) return null; if (!r.ok) return null; return await r.json(); } catch (e) { return null; }
+}
+async function cloudSave(){
+  try { const token = await graphToken(false);
+    await fetch('https://graph.microsoft.com/v1.0/me/drive/special/approot:/outreach-state.json:/content', {method: 'PUT', headers: {Authorization: 'Bearer ' + token, 'Content-Type': 'application/json'},
+      body: JSON.stringify({log, manual, pending, syncInfo, savedAt: new Date().toISOString()})}); } catch (e) {}
+}
+const CONTACTS_PATH = 'https://graph.microsoft.com/v1.0/me/drive/special/approot:/contacts.json:/content';
+async function cloudLoadContacts(){
+  try { const token = await graphToken(false);
+    const r = await fetch(CONTACTS_PATH, {headers: {Authorization: 'Bearer ' + token}});
+    if (!r.ok) return null; const arr = await r.json(); return Array.isArray(arr) && arr.length ? arr : null; } catch (e) { return null; }
+}
+async function cloudSaveContacts(arr){
+  const token = await graphToken(false);
+  const r = await fetch(CONTACTS_PATH, {method: 'PUT', headers: {Authorization: 'Bearer ' + token, 'Content-Type': 'application/json'}, body: JSON.stringify(arr)});
+  if (!r.ok) throw new Error('OneDrive refused the upload (' + r.status + ')');
+}
+function showSetup(msg){ const el = $('#setup'); el.hidden = !msg; if (msg) $('#setupMsg').textContent = msg; }
+$('#importFile').addEventListener('change', async e => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  try {
+    const arr = JSON.parse(await f.text());
+    if (!Array.isArray(arr) || !arr.length || !arr[0].email || !arr[0].body) throw new Error('not a contacts.json from the dashboard');
+    showSetup('Uploading ' + arr.length + ' contacts to your OneDrive…');
+    await cloudSaveContacts(arr);
+    setData(arr); showSetup(''); say(arr.length + ' contacts stored in your OneDrive'); syncOutlook(true);
+  } catch (err) { showSetup('Could not import that file: ' + err.message + '. Use the contacts.json file generated with the dashboard.'); }
+  e.target.value = '';
+});
+function mergeCloud(st){
+  if (!st) return;
+  for (const k in st.log || {}) { const L = log[k] || (log[k] = {sent: [], replies: []}); for (const x of st.log[k].sent || []) addUnique(L.sent, x); for (const x of st.log[k].replies || []) addUnique(L.replies, x); }
+  for (const k in st.manual || {}) { if (!manual[k] || (st.savedAt || '') > (syncInfo.at || '')) manual[k] = st.manual[k]; }
+  for (const k in st.pending || {}) if (!pending[k]) pending[k] = st.pending[k];
+  if (st.syncInfo && st.syncInfo.at && (!syncInfo.at || st.syncInfo.at > syncInfo.at)) syncInfo = st.syncInfo;
+  save(LKEY, log); save(MKEY, manual); save(PKEY, pending); save(SKEY, syncInfo);
+}
+
+function addUnique(arr, iso){ if (iso && !arr.includes(iso)) { arr.push(iso); arr.sort(); } }
+function errorText(e){
+  const code = e && e.code, name = e && e.errorCode;         // errorCode: MSAL
+  if (name === 'user_cancelled' || name === 'popup_window_error') return 'Sign-in was closed before finishing. Press the button to try again (allow pop-ups for this site).';
+  if (name === 'interaction_required' || name === 'login_required') return 'Please sign in again with your Cludo account.';
+  return code === 'needs_reauth' ? (backend === 'graph' ? 'Your Microsoft sign-in expired. Press the button to sign in again.' : 'Outlook needs to be reconnected: open claude.ai → Settings → Connectors → Microsoft 365, reconnect, then sync again.')
+    : code === 'server_not_connected' || code === 'server_not_found' ? 'No Microsoft 365 connector is available to this page. Add it in claude.ai → Settings → Connectors, then reload.'
+    : code === 'selection_required' ? 'You have more than one Microsoft 365 connector; choose one when the page asks, then sync again.'
+    : code === 'not_in_manifest' || code === 'consent_required' || code === 'not_granted' ? 'This page is not allowed to read Outlook yet. Use “Allow Outlook access” and accept the prompt.'
+    : code === 'blocked_by_policy' || code === 'approval_required' ? (backend === 'graph' ? 'Microsoft refused access (403). An administrator may need to grant the app permission to read mail.' : 'Your organisation’s policy blocks this page from reading Outlook.')
+    : code === 'cancelled' ? 'Outlook took too long to answer. Try again.'
+    : code === 'server_unavailable' || code === 'upstream_error' || code === 'rate_limited' ? 'Outlook did not answer. Wait a moment and try again. ' + (e && e.message ? e.message : '')
+    : code === 'capability_disabled' || code === 'capability_removed' ? 'Connector access is not available in this view. Open the page from your Claude artifacts list and try again.'
+    : 'Sync failed (' + (code || name || 'unknown') + '): ' + (e && e.message ? e.message : '');
+}
+async function syncOutlook(auto){
+  if (!backend) { setStatus('Outlook sync is not available in this copy of the page.', true); return; }
+  if (syncing) { say('Sync already running'); return; }
+  syncing = true; $('#syncBtn').textContent = backend === 'graph' && !account ? 'Signing in…' : 'Syncing…';
+  const since = syncInfo.at ? ymd(new Date(new Date(syncInfo.at).getTime() - 2 * 86400000)) : CAMPAIGN_START;
+  try {
+    if (backend === 'claude' && perms) {
+      let st = 'prompt';
+      try { st = await perms.state(PERM); } catch (e) {}
+      if (st === 'prompt' || st === 'denied') {
+        setStatus('Waiting for you to allow Outlook access…');
+        try { const r = await perms.request([PERM]); st = (r && r[PERM]) || st; } catch (e) {}
+        if (st === 'denied') { setStatus('Outlook access was declined for this page. Use the page’s Permissions menu to allow Microsoft 365, then sync again.', true); return; }
+      }
+    }
+    if (backend === 'graph' && !account) { await graphToken(true); mergeCloud(await cloudLoad()); if (!DATA.length) { const arr = await cloudLoadContacts(); if (arr) setData(arr); } render(); }
+    if (backend === 'graph' && !DATA.length) { showSetup('Signed in as ' + account.username + '. No contact list is stored in your OneDrive yet: import the contacts.json file once and it will be kept there, private to you.'); return; }
+    const scan = backend === 'graph' ? scanGraph : scanClaude;
+    const nSent = await scan('Sent Items', since, it => {
+      if (String(it.sender).toLowerCase() !== SENDER) return;
+      for (const r of it.recipients || []) {
+        const k = String(r).toLowerCase(); if (!known.has(k)) continue;
+        const L = log[k] || (log[k] = {sent: [], replies: []});
+        addUnique(L.sent, it.sentDateTime || it.receivedDateTime);
+        if (pending[k]) delete pending[k];
+      }
+    });
+    let nBounce = 0;
+    const nIn = await scan('Inbox', since, it => {
+      const snd = String(it.sender).toLowerCase();
+      const isNdr = /^undeliverable|delivery status notification|mail delivery failed|returned mail/i.test(it.subject) || /^(postmaster|mailer-daemon|microsoftexchange)/i.test(snd);
+      if (isNdr) {
+        const text = (it.preview || '') + ' ' + it.subject;
+        for (const m of text.toLowerCase().match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/g) || []) {
+          if (!known.has(m)) continue;
+          const L = log[m] || (log[m] = {sent: [], replies: []});
+          L.bounces = L.bounces || [];
+          const at = it.receivedDateTime || it.sentDateTime;
+          if (at && !L.bounces.includes(at)) { L.bounces.push(at); L.bounces.sort(); nBounce++; }
+        }
+        return;
+      }
+      if (!known.has(snd)) return;
+      const L = log[snd] || (log[snd] = {sent: [], replies: []});
+      addUnique(L.replies, it.receivedDateTime || it.sentDateTime);
+    });
+    syncInfo = {at: new Date().toISOString()};
+    save(LKEY, log); save(PKEY, pending); save(SKEY, syncInfo);
+    if (backend === 'graph') cloudSave();
+    const confirmed = Object.values(log).filter(l => l.sent.length).length, replied = Object.values(log).filter(l => l.replies.length).length;
+    setStatus(`Synced ${new Date().toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'})}${account ? ' as ' + account.username : ''} · ${nSent} sent + ${nIn} received emails checked since ${fmt(since)} · ${confirmed} contacts emailed · ${replied} replied${nBounce ? ' · ' + nBounce + ' new bounce' + (nBounce > 1 ? 's' : '') : ''}`);
+    render();
+  } catch (e) {
+    setStatus(errorText(e), true);
+  } finally { syncing = false; $('#syncBtn').textContent = backend === 'graph' && !account ? 'Sign in with Microsoft and sync' : 'Sync with Outlook'; }
+}
+// keep manual changes in the cloud too (hosted + signed in)
+const _save = save;
+save = function(k, v){ _save(k, v); if (backend === 'graph' && account && k !== SKEY) { clearTimeout(save._t); save._t = setTimeout(cloudSave, 1500); } };
+$('#syncBtn').addEventListener('click', () => syncOutlook(false));
+(async () => {
+  const row = $('#syncRow'); row.hidden = false;
+  if (window.claude && window.claude.use) {
+    setStatus('Connecting to Claude…');
+    try { mcp = await window.claude.use('mcp'); } catch (e) { mcp = null; }
+    try { perms = await window.claude.use('permissions'); } catch (e) { perms = null; }
+    if (!mcp) { setStatus('Connector access is not available in this view. Open the page from your Claude artifacts list (not as a separate browser tab), or mark steps by hand.', true); $('#syncBtn').hidden = true; return; }
+    backend = 'claude';
+    let st = 'prompt';
+    if (perms) { try { st = await perms.state(PERM); } catch (e) { st = 'prompt'; } }
+    let avail = '';
+    try {
+      const lt = await mcp.listTools(SERVER);
+      const srv = lt && lt.servers && lt.servers.find(x => x.server === SERVER);
+      if (!srv) avail = 'Microsoft 365 is not connected to your Claude account. Add it in Settings → Connectors, then reload this page.';
+      else if (srv.authStatus === 'needs_reauth') avail = 'Microsoft 365 needs to be reconnected in Settings → Connectors.';
+    } catch (e) {}
+    if (avail) { setStatus(avail, true); return; }
+    if (st === 'granted') { if (syncInfo.at) setStatus('Last synced ' + fmt(syncInfo.at)); syncOutlook(true); }
+    else if (st === 'denied') { setStatus('Outlook access was declined for this page. Allow Microsoft 365 in the page’s Permissions menu, then press Sync.', true); }
+    else { $('#syncBtn').textContent = 'Allow Outlook access and sync'; setStatus('First time here: press the button and accept the Microsoft 365 prompt.'); }
+    return;
+  }
+  if (CFG.clientId && window.msal && window.msal.PublicClientApplication) {
+    backend = 'graph';
+    msal = new window.msal.PublicClientApplication({auth: {clientId: CFG.clientId, authority: 'https://login.microsoftonline.com/' + (CFG.tenantId || 'organizations'), redirectUri: CFG.redirectUri || (location.origin + location.pathname)},
+      cache: {cacheLocation: 'localStorage'}});
+    await msal.initialize();
+    try { await msal.handleRedirectPromise(); } catch (e) {}
+    const accts = msal.getAllAccounts();
+    if (accts.length) { account = accts.find(a => (a.username || '').toLowerCase() === SENDER) || accts[0]; msal.setActiveAccount(account); }
+    if (account) {
+      setStatus('Signed in as ' + account.username + (syncInfo.at ? ' · last synced ' + fmt(syncInfo.at) : ''));
+      mergeCloud(await cloudLoad());
+      if (!DATA.length) { const arr = await cloudLoadContacts(); if (arr) setData(arr); else { showSetup('Signed in as ' + account.username + '. No contact list is stored in your OneDrive yet: import the contacts.json file once and it will be kept there, private to you.'); return; } }
+      render(); syncOutlook(true);
+    } else { $('#syncBtn').textContent = 'Sign in with Microsoft and sync'; if (!DATA.length) showSetup('This page holds no contact data. Sign in with your Cludo Microsoft account and your contact list is loaded from your OneDrive.'); setStatus('Sign in with ' + SENDER + ' to load your contacts and read your Sent Items and replies.'); }
+    return;
+  }
+  setStatus(CFG.clientId ? 'The Microsoft sign-in library did not load. Check your connection and reload.' : 'This copy of the page cannot reach Outlook. Steps can be marked as sent by hand on each card.', !!CFG.clientId);
+  $('#syncBtn').hidden = true;
+})();
+</script>
+
+</body></html>
