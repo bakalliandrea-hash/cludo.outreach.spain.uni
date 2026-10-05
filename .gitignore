@@ -1,0 +1,3 @@
+# never commit contact data
+contacts.json
+*.csv
