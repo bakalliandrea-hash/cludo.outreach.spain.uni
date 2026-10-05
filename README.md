@@ -1,32 +1,23 @@
-# Spain University Outreach dashboard
+# Cludo Outreach Desk
 
-Static site: `index.html` is the whole dashboard, `config.js` holds the Microsoft sign-in settings.
-Every push to `main` is published to GitHub Pages within about a minute.
+A BDR outreach platform that runs as a Claude app: each BDR keeps their prospects in private campaigns,
+works through a 3-email sequence (first contact, follow-up after N working days, last follow-up after M more),
+and sends with one click from Outlook. Status is read from the mailbox, not from clicks.
 
-## One-time setup
+## Files
+- `platform.html` – the whole app, published as a Claude artifact with the `db`, `user` and `mcp` (Microsoft 365) capabilities.
+  Everything a user does is stored in the artifact's database under `data/users/<id>/…`, private to that user.
+- `tools/gen.py` – turns an Apollo contacts CSV into `contacts.json` for import: filters valid, not-yet-contacted
+  contacts, maps job titles to the Spanish [área] phrase, builds the personalised first email per contact.
+  Run with `python3 tools/gen.py` next to `apollo-contacts-export.csv` (never commit the CSV or the JSON).
 
-### 1. Azure app registration (lets the page read your Outlook with your own sign-in)
-In https://entra.microsoft.com → Applications → App registrations → **New registration**:
-- Name: `Cludo Outreach Dashboard`
-- Supported account types: *Accounts in this organizational directory only (Cludo)*
-- Redirect URI: platform **Single-page application (SPA)**, value = the GitHub Pages URL of this site
-  (e.g. `https://<user>.github.io/<repo>/`). Add `http://localhost:8080/` too if you want to test locally.
-- After creating: **API permissions → Add a permission → Microsoft Graph → Delegated**:
-  `User.Read`, `Mail.Read`, `Files.ReadWrite.AppFolder`. No admin consent is normally needed for these.
-- Copy **Application (client) ID** and **Directory (tenant) ID** from the Overview page into `config.js`.
+## How a BDR uses it
+1. Open the app from Claude (ask the owner to share it as Contributor).
+2. Allow Outlook access once (Microsoft 365 connector, no admin consent needed).
+3. Import prospects (`contacts.json` from `tools/gen.py`, or any CSV with first_name, last_name, email, organisation, title).
+4. Work the queue: To contact → Follow-up due → Waiting → Replied → Finished. Press "Open in Outlook", send, and the
+   sync picks up the sent email, replies and bounces.
+5. Adjust templates, waiting days and holidays under "Sequence & settings"; create one campaign per list/language.
 
-### 2. GitHub Pages
-Repository → Settings → Pages → Source: **GitHub Actions**. The workflow in `.github/workflows/deploy.yml` does the rest.
-
-## Updating the contact list or the email templates
-The page is generated from the Apollo CSV by `gen.py` + `build.py` (kept in the Claude session);
-ask Claude to regenerate `contacts.json` (then import it) or to change the templates in `index.html` and push.
-
-## Where the contacts are
-`index.html` contains **no contact data**. The first time you sign in, import the `contacts.json` file
-Claude generated; the page stores it in a private app folder of your OneDrive and loads it from there on
-every device after sign-in. To update the list, import a new `contacts.json` the same way.
-
-## Where progress is stored
-In the browser (localStorage) and, once signed in, in a private app folder of your OneDrive
-(`Apps/Cludo Outreach Dashboard/outreach-state.json`), so it follows you across devices.
+## Data
+No prospect data lives in this repository. The `.gitignore` blocks CSV and JSON exports.
